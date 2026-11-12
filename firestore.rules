@@ -1,0 +1,240 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Reusable Security Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isVerifiedEmail() && (
+        request.auth.token.email == 'hendy.HF@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidKelas(kelas) {
+      return kelas in ['Kelas 1', 'Kelas 2', 'Kelas 3', 'Kelas 4', 'Kelas 5', 'Kelas 6'];
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidExam(data) {
+      return data.keys().hasAll([
+          'id', 'judul', 'kelas', 'mataPelajaran', 'durasiMenit', 'kkm',
+          'acakSoal', 'acakOpsi', 'tampilkanHasil', 'token', 'tanggalDibuat',
+          'totalBobot', 'soalList', 'ownerId', 'isPublished', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'judul', 'deskripsi', 'kelas', 'mataPelajaran', 'durasiMenit', 'kkm',
+          'acakSoal', 'acakOpsi', 'tampilkanHasil', 'token', 'tanggalDibuat',
+          'totalBobot', 'soalList', 'ownerId', 'isPublished', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.judul is string && data.judul.size() >= 1 && data.judul.size() <= 200
+        && (!('deskripsi' in data) || (data.deskripsi is string && data.deskripsi.size() <= 1000))
+        && isValidKelas(data.kelas)
+        && data.mataPelajaran is string && data.mataPelajaran.size() >= 1 && data.mataPelajaran.size() <= 80
+        && data.durasiMenit is number && data.durasiMenit >= 1 && data.durasiMenit <= 300
+        && data.kkm is number && data.kkm >= 0 && data.kkm <= 100
+        && data.acakSoal is bool
+        && data.acakOpsi is bool
+        && data.tampilkanHasil is bool
+        && data.token is string && data.token.size() >= 1 && data.token.size() <= 30
+        && data.tanggalDibuat is string && data.tanggalDibuat.size() <= 30
+        && data.totalBobot is number && data.totalBobot >= 0 && data.totalBobot <= 10000
+        && data.soalList is list && data.soalList.size() <= 100
+        && (data.soalList.size() == 0 || data.soalList[0] is map)
+        && isValidId(data.ownerId)
+        && data.isPublished is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAttempt(data) {
+      return data.keys().hasAll([
+          'id', 'examId', 'examOwnerId', 'studentUid', 'namaSiswa', 'nisn',
+          'kelas', 'nomorAbsen', 'waktuMulai', 'jawaban', 'nilaiPG',
+          'nilaiUraian', 'nilaiAkhir', 'totalBobotDiperoleh',
+          'totalBobotMaksimal', 'status', 'statusKelulusan', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'examId', 'examOwnerId', 'studentUid', 'namaSiswa', 'nisn',
+          'kelas', 'nomorAbsen', 'waktuMulai', 'waktuSelesai', 'jawaban', 'nilaiPG',
+          'nilaiUraian', 'nilaiAkhir', 'totalBobotDiperoleh',
+          'totalBobotMaksimal', 'status', 'statusKelulusan', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.examId)
+        && isValidId(data.examOwnerId)
+        && isValidId(data.studentUid)
+        && data.namaSiswa is string && data.namaSiswa.size() >= 1 && data.namaSiswa.size() <= 120
+        && data.nisn is string && data.nisn.size() <= 40
+        && isValidKelas(data.kelas)
+        && data.nomorAbsen is string && data.nomorAbsen.size() <= 20
+        && data.waktuMulai is string && data.waktuMulai.size() <= 40
+        && (!('waktuSelesai' in data) || (data.waktuSelesai is string && data.waktuSelesai.size() <= 40))
+        && data.jawaban is map
+        && data.nilaiPG is number && data.nilaiPG >= 0
+        && data.nilaiUraian is number && data.nilaiUraian >= 0
+        && data.nilaiAkhir is number && data.nilaiAkhir >= 0 && data.nilaiAkhir <= 100
+        && data.totalBobotDiperoleh is number && data.totalBobotDiperoleh >= 0
+        && data.totalBobotMaksimal is number && data.totalBobotMaksimal >= 0
+        && data.status in ['mengerjakan', 'selesai', 'dinilai']
+        && data.statusKelulusan in ['Tuntas', 'Perlu Remedial']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSchoolMeta(data) {
+      return data.keys().hasAll(['initialized', 'initializedBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['initialized', 'initializedBy', 'createdAt', 'updatedAt'])
+        && data.initialized is bool
+        && isValidId(data.initializedBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // Admins registry (read-only by self or admin; managed out-of-band)
+    match /admins/{adminUid} {
+      allow get: if isVerifiedEmail() && isValidId(adminUid) && (isOwner(adminUid) || isAdmin());
+      allow list, write: if false;
+    }
+
+    // Connection check doc
+    match /test/{testId} {
+      allow get: if isSignedIn() && isValidId(testId);
+      allow list, write: if false;
+    }
+
+    // School initialization marker (immutable once created)
+    match /schoolMeta/{metaId} {
+      allow get: if isVerifiedEmail() && isValidId(metaId);
+      allow list: if false;
+      allow create: if isVerifiedEmail()
+        && isValidId(metaId)
+        && isValidSchoolMeta(incoming())
+        && incoming().initializedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Exam Packages
+    match /exams/{examId} {
+      allow get: if isVerifiedEmail()
+        && isValidId(examId)
+        && (isAdmin() || existing().ownerId == request.auth.uid || existing().isPublished == true);
+
+      allow list: if isVerifiedEmail()
+        && (isAdmin() || resource.data.ownerId == request.auth.uid || resource.data.isPublished == true);
+
+      allow create: if isVerifiedEmail()
+        && isValidId(examId)
+        && isValidExam(incoming())
+        && incoming().id == examId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedEmail()
+        && isValidId(examId)
+        && isValidExam(incoming())
+        && (isAdmin() || existing().ownerId == request.auth.uid)
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'judul', 'deskripsi', 'kelas', 'mataPelajaran', 'durasiMenit', 'kkm',
+          'acakSoal', 'acakOpsi', 'tampilkanHasil', 'token', 'tanggalDibuat',
+          'totalBobot', 'soalList', 'isPublished', 'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedEmail()
+        && isValidId(examId)
+        && (isAdmin() || existing().ownerId == request.auth.uid);
+    }
+
+    // Student Exam Attempts
+    match /attempts/{attemptId} {
+      allow get: if isVerifiedEmail()
+        && isValidId(attemptId)
+        && (
+          isAdmin() ||
+          existing().examOwnerId == request.auth.uid ||
+          existing().studentUid == request.auth.uid
+        );
+
+      allow list: if isVerifiedEmail()
+        && (
+          isAdmin() ||
+          resource.data.examOwnerId == request.auth.uid ||
+          resource.data.studentUid == request.auth.uid
+        );
+
+      allow create: if isVerifiedEmail()
+        && isValidId(attemptId)
+        && isValidAttempt(incoming())
+        && incoming().id == attemptId
+        && incoming().studentUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/exams/$(incoming().examId))
+        && (
+          isAdmin() ||
+          getAfter(/databases/$(database)/documents/exams/$(incoming().examId)).data.ownerId == incoming().examOwnerId
+        );
+
+      allow update: if isVerifiedEmail()
+        && isValidId(attemptId)
+        && isValidAttempt(incoming())
+        && incoming().id == existing().id
+        && incoming().examId == existing().examId
+        && incoming().examOwnerId == existing().examOwnerId
+        && incoming().studentUid == existing().studentUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (existing().examOwnerId == request.auth.uid && existing().status != 'dinilai')
+        )
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'jawaban', 'nilaiPG', 'nilaiUraian', 'nilaiAkhir',
+          'totalBobotDiperoleh', 'status', 'statusKelulusan', 'updatedAt'
+        ]);
+
+      allow delete: if isVerifiedEmail()
+        && isValidId(attemptId)
+        && (isAdmin() || existing().examOwnerId == request.auth.uid);
+    }
+  }
+}

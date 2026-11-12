@@ -46,6 +46,8 @@ export interface ExamPackage {
   tanggalDibuat: string;
   totalBobot: number;
   soalList: Question[];
+  ownerId?: string;
+  isPublished?: boolean;
 }
 
 export interface StudentAnswerItem {
@@ -59,6 +61,8 @@ export interface StudentAnswerItem {
 export interface StudentAttempt {
   id: string;
   examId: string;
+  examOwnerId?: string;
+  studentUid?: string;
   namaSiswa: string;
   nisn: string;
   kelas: KelasSD;

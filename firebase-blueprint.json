@@ -1,0 +1,293 @@
+{
+  "entities": {
+    "ExamPackage": {
+      "title": "ExamPackage",
+      "description": "Paket soal ujian CBT untuk SD Kelas 1-6 beserta daftar butir soal dan pembobotannya.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID unik paket ujian"
+        },
+        "judul": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Judul paket asesmen"
+        },
+        "deskripsi": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Deskripsi singkat paket ujian"
+        },
+        "kelas": {
+          "type": "string",
+          "enum": ["Kelas 1", "Kelas 2", "Kelas 3", "Kelas 4", "Kelas 5", "Kelas 6"],
+          "description": "Tingkat kelas SD"
+        },
+        "mataPelajaran": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Mata pelajaran SD"
+        },
+        "durasiMenit": {
+          "type": "number",
+          "description": "Durasi ujian dalam menit"
+        },
+        "kkm": {
+          "type": "number",
+          "description": "Kriteria ketuntasan minimal (0-100)"
+        },
+        "acakSoal": {
+          "type": "boolean",
+          "description": "Apakah urutan soal diacak"
+        },
+        "acakOpsi": {
+          "type": "boolean",
+          "description": "Apakah urutan opsi PG diacak"
+        },
+        "tampilkanHasil": {
+          "type": "boolean",
+          "description": "Apakah nilai ditampilkan setelah selesai"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30,
+          "description": "Token akses ujian untuk siswa"
+        },
+        "tanggalDibuat": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Tanggal pembuatan paket (YYYY-MM-DD)"
+        },
+        "totalBobot": {
+          "type": "number",
+          "description": "Total bobot poin dari seluruh butir soal"
+        },
+        "soalList": {
+          "type": "array",
+          "description": "Daftar butir soal pilihan ganda dan uraian (maks 100 soal)"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID guru pembuat paket soal"
+        },
+        "isPublished": {
+          "type": "boolean",
+          "description": "Status publikasi agar dapat diakses siswa melalui token"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp pembuatan"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp pembaruan terakhir"
+        }
+      },
+      "required": [
+        "id",
+        "judul",
+        "kelas",
+        "mataPelajaran",
+        "durasiMenit",
+        "kkm",
+        "acakSoal",
+        "acakOpsi",
+        "tampilkanHasil",
+        "token",
+        "tanggalDibuat",
+        "totalBobot",
+        "soalList",
+        "ownerId",
+        "isPublished",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudentAttempt": {
+      "title": "StudentAttempt",
+      "description": "Rekap pengerjaan dan nilai ujian siswa untuk satu paket ujian.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID unik pengerjaan siswa"
+        },
+        "examId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referensi ID paket ujian"
+        },
+        "examOwnerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID guru pemilik paket ujian"
+        },
+        "studentUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID akun siswa yang mengerjakan"
+        },
+        "namaSiswa": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nama lengkap siswa"
+        },
+        "nisn": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "NISN siswa"
+        },
+        "kelas": {
+          "type": "string",
+          "enum": ["Kelas 1", "Kelas 2", "Kelas 3", "Kelas 4", "Kelas 5", "Kelas 6"],
+          "description": "Kelas siswa"
+        },
+        "nomorAbsen": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Nomor absen siswa"
+        },
+        "waktuMulai": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Waktu mulai ujian"
+        },
+        "waktuSelesai": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Waktu selesai ujian"
+        },
+        "jawaban": {
+          "type": "object",
+          "description": "Peta jawaban siswa per ID soal"
+        },
+        "nilaiPG": {
+          "type": "number",
+          "description": "Skor total pilihan ganda"
+        },
+        "nilaiUraian": {
+          "type": "number",
+          "description": "Skor total uraian"
+        },
+        "nilaiAkhir": {
+          "type": "number",
+          "description": "Nilai akhir skala 0-100"
+        },
+        "totalBobotDiperoleh": {
+          "type": "number",
+          "description": "Total poin diperoleh"
+        },
+        "totalBobotMaksimal": {
+          "type": "number",
+          "description": "Total poin maksimal ujian"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["mengerjakan", "selesai", "dinilai"],
+          "description": "Status pengerjaan dan penilaian"
+        },
+        "statusKelulusan": {
+          "type": "string",
+          "enum": ["Tuntas", "Perlu Remedial"],
+          "description": "Status kelulusan berdasarkan KKM"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp pembuatan"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp pembaruan terakhir"
+        }
+      },
+      "required": [
+        "id",
+        "examId",
+        "examOwnerId",
+        "studentUid",
+        "namaSiswa",
+        "nisn",
+        "kelas",
+        "nomorAbsen",
+        "waktuMulai",
+        "jawaban",
+        "nilaiPG",
+        "nilaiUraian",
+        "nilaiAkhir",
+        "totalBobotDiperoleh",
+        "totalBobotMaksimal",
+        "status",
+        "statusKelulusan",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SchoolMeta": {
+      "title": "SchoolMeta",
+      "description": "Penanda inisialisasi awal data contoh agar tidak kembali ke default setelah diubah atau dihapus.",
+      "type": "object",
+      "properties": {
+        "initialized": {
+          "type": "boolean",
+          "description": "Menandakan data awal sudah pernah dimuat ke cloud"
+        },
+        "initializedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID guru yang pertama kali menginisialisasi database"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp inisialisasi"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp pembaruan"
+        }
+      },
+      "required": ["initialized", "initializedBy", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/exams/{examId}": {
+      "schema": { "$ref": "#/entities/ExamPackage" },
+      "description": "Koleksi paket soal CBT SD Kelas 1-6"
+    },
+    "/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/StudentAttempt" },
+      "description": "Koleksi hasil ujian dan nilai siswa"
+    },
+    "/schoolMeta/{metaId}": {
+      "schema": { "$ref": "#/entities/SchoolMeta" },
+      "description": "Metadata inisialisasi database sekolah"
+    }
+  }
+}
