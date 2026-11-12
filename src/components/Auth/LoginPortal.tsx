@@ -12,6 +12,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import firebaseConfig from '../../../firebase-applet-config.json';
 
 interface LoginPortalProps {
   onSelectRole: (role: 'guru' | 'siswa', preferRedirect?: boolean) => Promise<void> | void;
@@ -45,7 +46,9 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   const [loadingRole, setLoadingRole] = useState<'guru' | 'siswa' | null>(null);
   const [lastAttemptedRole, setLastAttemptedRole] = useState<'guru' | 'siswa' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
+  const [isUnauthorizedDomain, setIsUnauthorizedDomain] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   const isInAppWebView = detectInAppBrowser();
   const inIframe = detectIframe();
@@ -58,6 +61,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
 
   const handleRoleClick = async (role: 'guru' | 'siswa', preferRedirect = false) => {
     setErrorMsg(null);
+    setIsUnauthorizedDomain(false);
     setLoadingRole(role);
     setLastAttemptedRole(role);
 
@@ -77,9 +81,10 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
         setErrorMsg(
           'Pop-up login diblokir oleh browser HP. Izinkan pop-up atau gunakan tombol Login Mode Redirect di bawah.'
         );
-      } else if (code === 'auth/unauthorized-domain') {
+      } else if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        setIsUnauthorizedDomain(true);
         setErrorMsg(
-          `Domain (${window.location.hostname}) belum diizinkan pada pengaturan Firebase Auth (${code}).`
+          `Domain (${window.location.hostname}) belum diizinkan pada pengaturan Firebase Auth (${code || 'auth/unauthorized-domain'}).`
         );
       } else if (code === 'auth/network-request-failed') {
         setErrorMsg('Koneksi internet bermasalah. Periksa jaringan seluler/Wi-Fi Anda lalu coba lagi.');
@@ -98,6 +103,14 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
       navigator.clipboard.writeText(window.location.href);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
+    } catch {}
+  };
+
+  const handleCopyDomain = () => {
+    try {
+      navigator.clipboard.writeText(window.location.hostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2000);
     } catch {}
   };
 
@@ -165,7 +178,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
           </div>
         )}
 
-        {/* Auth Error + Mobile Redirect Fallback */}
+        {/* Auth Error + Unauthorized Domain Guide / Mobile Redirect Fallback */}
         {errorMsg && (
           <div className="max-w-xl mx-auto p-3.5 bg-rose-50 border border-rose-200 rounded-2xl space-y-2.5 text-xs text-rose-700">
             <div className="flex items-start gap-2 font-medium">
@@ -173,18 +186,48 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               <span>{errorMsg}</span>
             </div>
 
-            {!inIframe && lastAttemptedRole && (
-              <div className="flex flex-wrap items-center gap-2 pl-6">
+            {isUnauthorizedDomain ? (
+              <div className="pl-6 space-y-2 text-[11px] text-rose-900 bg-white/80 p-3 rounded-xl border border-rose-200">
+                <p className="font-semibold">Cara Mengizinkan Domain Ini:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>
+                    Buka{' '}
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-bold text-indigo-700 hover:text-indigo-900"
+                    >
+                      Firebase Console → Authentication → Settings
+                    </a>
+                  </li>
+                  <li>Pilih tab <strong>Authorized domains</strong> lalu klik <strong>Add domain</strong>.</li>
+                  <li>Masukkan <code className="px-1 py-0.5 bg-rose-100 rounded font-mono">{window.location.hostname}</code> lalu simpan.</li>
+                </ol>
                 <button
                   type="button"
-                  disabled={loadingRole !== null}
-                  onClick={() => handleRoleClick(lastAttemptedRole, true)}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5"
+                  onClick={handleCopyDomain}
+                  className="mt-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg inline-flex items-center gap-1.5 transition-colors"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Coba Login Mode Redirect (Khusus HP)</span>
+                  {copiedDomain ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedDomain ? 'Domain Tersalin!' : `Salin ${window.location.hostname}`}</span>
                 </button>
               </div>
+            ) : (
+              !inIframe &&
+              lastAttemptedRole && (
+                <div className="flex flex-wrap items-center gap-2 pl-6">
+                  <button
+                    type="button"
+                    disabled={loadingRole !== null}
+                    onClick={() => handleRoleClick(lastAttemptedRole, true)}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Coba Login Mode Redirect (Khusus HP)</span>
+                  </button>
+                </div>
+              )
             )}
           </div>
         )}
