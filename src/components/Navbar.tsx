@@ -1,16 +1,20 @@
 import React from 'react';
-import { BookOpen, GraduationCap, Sparkles, FileText, BarChart3, HelpCircle } from 'lucide-react';
+import { BookOpen, GraduationCap, Sparkles, FileText, BarChart3, HelpCircle, LogOut } from 'lucide-react';
 
 interface NavbarProps {
   activeView: 'guru' | 'siswa' | 'panduan';
   onViewChange: (view: 'guru' | 'siswa' | 'panduan') => void;
   examCount: number;
+  currentRole?: 'guru' | 'siswa' | null;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeView,
   onViewChange,
   examCount,
+  currentRole,
+  onLogout,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -24,12 +28,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              onViewChange('guru');
+              if (onLogout) onLogout();
+              else onViewChange('guru');
             }}
             className="text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 hover:text-indigo-600 transition-colors"
           >
-            CBT EduSD
+            CBT SDN GUNUNGSARI 04
           </a>
+          {currentRole === 'guru' && (
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-md">
+              Guru
+            </span>
+          )}
+          {currentRole === 'siswa' && (
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md">
+              Siswa
+            </span>
+          )}
         </div>
 
         {/* Zone 2: Navigation links */}
@@ -74,22 +89,33 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Zone 3: 1 primary action button */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: 1 primary action button + Ganti Peran */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Ganti Peran / Keluar ke Halaman Awal"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ganti Peran</span>
+            </button>
+          )}
+
           {activeView === 'siswa' ? (
             <button
               onClick={() => onViewChange('guru')}
-              className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
-              Kembali ke Mode Guru
+              Mode Guru
             </button>
           ) : (
             <button
               onClick={() => onViewChange('siswa')}
-              className="px-4 py-2 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5"
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Simulasi Ujian Siswa</span>
+              <span>Simulasi Siswa</span>
             </button>
           )}
         </div>

@@ -15,11 +15,27 @@ import { StudentEntryModal } from './components/StudentExam/StudentEntryModal';
 import { StudentExamView } from './components/StudentExam/StudentExamView';
 import { ExamResultView } from './components/StudentExam/ExamResultView';
 import { GuideTab } from './components/GuideTab';
+import { LoginPortal } from './components/Auth/LoginPortal';
 import { INITIAL_EXAMS, INITIAL_ATTEMPTS } from './data/sampleExams';
 import { ExamPackage, Question, StudentAttempt, KelasSD, MataPelajaran } from './types/cbt';
 import { BookOpen, Award, Sparkles, Plus, GraduationCap } from 'lucide-react';
 
 export default function App() {
+  // User Role Selection State: 'guru' | 'siswa' | null (portal login)
+  const [currentRole, setCurrentRole] = useState<'guru' | 'siswa' | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode');
+      if (mode === 'guru') return 'guru';
+      if (mode === 'siswa') return 'siswa';
+      const saved = localStorage.getItem('cbt_user_role');
+      if (saved === 'guru' || saved === 'siswa') return saved;
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
   // Navigation State
   const [activeNav, setActiveNav] = useState<'guru' | 'siswa' | 'panduan'>('guru');
   const [teacherSubTab, setTeacherSubTab] = useState<'bank' | 'rekap'>('bank');
@@ -56,6 +72,16 @@ export default function App() {
     } catch {}
   }, [attempts]);
 
+  useEffect(() => {
+    try {
+      if (currentRole) {
+        localStorage.setItem('cbt_user_role', currentRole);
+      } else {
+        localStorage.removeItem('cbt_user_role');
+      }
+    } catch {}
+  }, [currentRole]);
+
   // Managing specific exam's questions
   const [managingExam, setManagingExam] = useState<ExamPackage | null>(null);
 
@@ -84,12 +110,34 @@ export default function App() {
     const autoStartParam = params.get('autostart');
 
     if (modeParam === 'siswa' || autoStartParam === '1') {
+      setCurrentRole('siswa');
       setActiveNav('siswa');
       setIsStudentEntryModalOpen(true);
+    } else if (modeParam === 'guru') {
+      setCurrentRole('guru');
+      setActiveNav('guru');
     } else if (modeParam === 'panduan') {
       setActiveNav('panduan');
     }
   }, []);
+
+  // Handlers for Role & Auth Portal
+  const handleSelectRole = (role: 'guru' | 'siswa') => {
+    setCurrentRole(role);
+    if (role === 'guru') {
+      setActiveNav('guru');
+    } else {
+      setActiveNav('siswa');
+      setIsStudentEntryModalOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentRole(null);
+    setIsStudentEntryModalOpen(false);
+    setManagingExam(null);
+    setExamToTestDirectly(null);
+  };
 
   // Handler: Add or update exam
   const handleSaveExam = (newExam: ExamPackage) => {
@@ -177,6 +225,16 @@ export default function App() {
     setAttempts((prev) => prev.map((att) => (att.id === updated.id ? updated : att)));
   };
 
+  // Handler: Delete single student attempt from grading
+  const handleDeleteAttempt = (attemptId: string) => {
+    setAttempts((prev) => prev.filter((att) => att.id !== attemptId));
+  };
+
+  // Handler: Clear all student attempts
+  const handleClearAllAttempts = () => {
+    setAttempts([]);
+  };
+
   // If in active student testing mode
   if (studentSession) {
     return (
@@ -199,12 +257,27 @@ export default function App() {
         exam={matchedExam}
         onBackToHome={() => {
           setCompletedAttempt(null);
-          setActiveNav('guru');
+          if (currentRole === 'siswa') {
+            setActiveNav('siswa');
+            setIsStudentEntryModalOpen(true);
+          } else {
+            setActiveNav('guru');
+          }
         }}
         onRetakeExam={() => {
           setCompletedAttempt(null);
           handleStartStudentTest(matchedExam);
         }}
+      />
+    );
+  }
+
+  // If no role chosen yet, show initial Login / Role Selection Portal
+  if (!currentRole) {
+    return (
+      <LoginPortal
+        onSelectRole={handleSelectRole}
+        examCount={exams.length}
       />
     );
   }
@@ -221,6 +294,8 @@ export default function App() {
           }
         }}
         examCount={exams.length}
+        currentRole={currentRole}
+        onLogout={handleLogout}
       />
 
       {/* Main Container */}
@@ -292,6 +367,8 @@ export default function App() {
                     exams={exams}
                     attempts={attempts}
                     onUpdateAttempt={handleUpdateAttempt}
+                    onDeleteAttempt={handleDeleteAttempt}
+                    onClearAllAttempts={handleClearAllAttempts}
                   />
                 )}
               </>
@@ -338,7 +415,7 @@ export default function App() {
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400 no-print">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-          <span>CBT EduSD Pintar · SD Kelas 1–6</span>
+          <span>CBT SDN GUNUNGSARI 04 · SD Kelas 1–6</span>
           <span className="text-slate-400">AI · Excel · Word</span>
         </div>
       </footer>

@@ -14,6 +14,7 @@ import {
   Check,
   RefreshCw,
   HelpCircle,
+  Trash2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ExamPackage, Question, StudentAttempt } from '../../types/cbt';
@@ -23,12 +24,16 @@ interface GradingTabProps {
   exams: ExamPackage[];
   attempts: StudentAttempt[];
   onUpdateAttempt: (updated: StudentAttempt) => void;
+  onDeleteAttempt?: (attemptId: string) => void;
+  onClearAllAttempts?: () => void;
 }
 
 export const GradingTab: React.FC<GradingTabProps> = ({
   exams,
   attempts,
   onUpdateAttempt,
+  onDeleteAttempt,
+  onClearAllAttempts,
 }) => {
   const [selectedExamFilter, setSelectedExamFilter] = useState<string>('all');
   const [activeAttemptForGrading, setActiveAttemptForGrading] = useState<StudentAttempt | null>(null);
@@ -205,6 +210,21 @@ export const GradingTab: React.FC<GradingTabProps> = ({
             <Printer className="w-4 h-4" />
             <span>Cetak / PDF</span>
           </button>
+
+          {onClearAllAttempts && attempts.length > 0 && (
+            <button
+              onClick={() => {
+                if (confirm('Yakin ingin menghapus seluruh data rekap nilai ujian siswa? Tindakan ini tidak dapat dibatalkan.')) {
+                  onClearAllAttempts();
+                }
+              }}
+              className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5 no-print"
+              title="Hapus Semua Nilai"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Hapus Semua</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -294,13 +314,29 @@ export const GradingTab: React.FC<GradingTabProps> = ({
                       </td>
 
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setActiveAttemptForGrading(att)}
-                          className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors inline-flex items-center gap-1"
-                        >
-                          <span>Periksa Lembar Jawaban</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setActiveAttemptForGrading(att)}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors inline-flex items-center gap-1"
+                            title="Periksa Lembar Jawaban"
+                          >
+                            <span>Periksa</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                          {onDeleteAttempt && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Hapus nilai ujian untuk siswa "${att.namaSiswa}"?`)) {
+                                  onDeleteAttempt(att.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+                              title="Hapus Nilai Siswa"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -511,9 +547,27 @@ export const GradingTab: React.FC<GradingTabProps> = ({
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">
-                Semua perubahan skor disimpan secara langsung.
-              </span>
+              <div>
+                {onDeleteAttempt && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Hapus data nilai ujian untuk siswa "${activeAttemptForGrading.namaSiswa}"?`
+                        )
+                      ) {
+                        onDeleteAttempt(activeAttemptForGrading.id);
+                        setActiveAttemptForGrading(null);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Hapus Nilai Siswa Ini</span>
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setActiveAttemptForGrading(null)}
