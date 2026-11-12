@@ -1,0 +1,6 @@
+{
+  "name": "CBT EduSD Pintar",
+  "description": "Platform Computer-Based Testing (CBT) modern & ramah anak untuk SD Kelas 1–6 dengan generator soal AI, impor Excel/Word, dan pembobotan nilai otomatis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
