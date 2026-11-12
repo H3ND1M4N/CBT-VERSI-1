@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import {
   GraduationCap,
@@ -8,13 +8,31 @@ import {
   LogOut,
   Loader2,
   AlertCircle,
+  ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface LoginPortalProps {
-  onSelectRole: (role: 'guru' | 'siswa') => Promise<void> | void;
+  onSelectRole: (role: 'guru' | 'siswa', preferRedirect?: boolean) => Promise<void> | void;
   firebaseUser: User | null;
   authReady: boolean;
   onGoogleSignOut?: () => Promise<void>;
+  initialError?: string | null;
+}
+
+function detectInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|WhatsApp|Line\/|Telegram|; wv\)/i.test(ua);
+}
+
+function detectIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 export const LoginPortal: React.FC<LoginPortalProps> = ({
@@ -22,27 +40,65 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   firebaseUser,
   authReady,
   onGoogleSignOut,
+  initialError = null,
 }) => {
   const [loadingRole, setLoadingRole] = useState<'guru' | 'siswa' | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [lastAttemptedRole, setLastAttemptedRole] = useState<'guru' | 'siswa' | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleRoleClick = async (role: 'guru' | 'siswa') => {
+  const isInAppWebView = detectInAppBrowser();
+  const inIframe = detectIframe();
+
+  useEffect(() => {
+    if (initialError) {
+      setErrorMsg(initialError);
+    }
+  }, [initialError]);
+
+  const handleRoleClick = async (role: 'guru' | 'siswa', preferRedirect = false) => {
     setErrorMsg(null);
     setLoadingRole(role);
+    setLastAttemptedRole(role);
+
     try {
-      await onSelectRole(role);
+      await onSelectRole(role, preferRedirect);
     } catch (err: any) {
+      const code = err?.code || '';
       const msg = err?.message || '';
-      if (msg.includes('popup-closed-by-user')) {
-        setErrorMsg('Login dibatalkan. Silakan pilih akun Google Anda untuk melanjutkan.');
-      } else if (msg.includes('popup-blocked')) {
-        setErrorMsg('Pop-up login terblokir oleh browser. Izinkan pop-up untuk situs ini lalu coba lagi.');
+
+      if (code === 'auth/popup-closed-by-user' || msg.includes('popup-closed-by-user')) {
+        setErrorMsg(
+          'Jendela login Google tertutup sebelum selesai. Silakan coba lagi atau gunakan Mode Redirect di HP.'
+        );
+      } else if (code === 'auth/cancelled-popup-request') {
+        setErrorMsg('Permintaan login dibatalkan. Silakan tekan tombol masuk sekali saja.');
+      } else if (code === 'auth/popup-blocked' || msg.includes('popup-blocked')) {
+        setErrorMsg(
+          'Pop-up login diblokir oleh browser HP. Izinkan pop-up atau gunakan tombol Login Mode Redirect di bawah.'
+        );
+      } else if (code === 'auth/unauthorized-domain') {
+        setErrorMsg(
+          `Domain (${window.location.hostname}) belum diizinkan pada pengaturan Firebase Auth (${code}).`
+        );
+      } else if (code === 'auth/network-request-failed') {
+        setErrorMsg('Koneksi internet bermasalah. Periksa jaringan seluler/Wi-Fi Anda lalu coba lagi.');
       } else {
-        setErrorMsg('Gagal masuk dengan akun Google. Silakan coba lagi.');
+        setErrorMsg(
+          `Gagal masuk dengan akun Google${code ? ` (${code})` : ''}. Jika dibuka di HP, gunakan Chrome/Safari atau coba Mode Redirect.`
+        );
       }
     } finally {
       setLoadingRole(null);
     }
+  };
+
+  const handleCopyUrl = () => {
+    try {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {}
   };
 
   return (
@@ -60,7 +116,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
 
         {firebaseUser && (
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
-            <span className="text-xs font-semibold text-slate-700 truncate max-w-[160px] sm:max-w-[220px]">
+            <span className="text-xs font-semibold text-slate-700 truncate max-w-[140px] sm:max-w-[220px]">
               {firebaseUser.displayName || firebaseUser.email}
             </span>
             {onGoogleSignOut && (
@@ -89,10 +145,47 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
           </p>
         </div>
 
+        {/* In-App Browser Warning on Mobile (WhatsApp / Telegram / IG) */}
+        {isInAppWebView && (
+          <div className="max-w-xl mx-auto p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-2.5 text-xs text-amber-900">
+            <div className="flex items-start gap-2 font-semibold">
+              <ExternalLink className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <span>
+                Terdeteksi browser dalam aplikasi (WhatsApp/Media Sosial). Login Google sering diblokir di sini — buka link di <strong>Google Chrome</strong> atau <strong>Safari</strong>.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyUrl}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg inline-flex items-center gap-1.5 transition-colors"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? 'Link Tersalin! Tempel di Chrome/Safari' : 'Salin Link Aplikasi'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Auth Error + Mobile Redirect Fallback */}
         {errorMsg && (
-          <div className="max-w-xl mx-auto p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs text-rose-700 font-medium">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
+          <div className="max-w-xl mx-auto p-3.5 bg-rose-50 border border-rose-200 rounded-2xl space-y-2.5 text-xs text-rose-700">
+            <div className="flex items-start gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+
+            {!inIframe && lastAttemptedRole && (
+              <div className="flex flex-wrap items-center gap-2 pl-6">
+                <button
+                  type="button"
+                  disabled={loadingRole !== null}
+                  onClick={() => handleRoleClick(lastAttemptedRole, true)}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Coba Login Mode Redirect (Khusus HP)</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -120,11 +213,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               </div>
             </div>
 
-            <div className="pt-6">
+            <div className="pt-6 space-y-2">
               <button
                 type="button"
                 disabled={!authReady || loadingRole !== null}
-                onClick={() => handleRoleClick('guru')}
+                onClick={() => handleRoleClick('guru', false)}
                 className="w-full py-3.5 px-4 text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-2xl shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-2"
               >
                 {loadingRole === 'guru' ? (
@@ -141,6 +234,17 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   </>
                 )}
               </button>
+
+              {!firebaseUser && !inIframe && (
+                <button
+                  type="button"
+                  disabled={!authReady || loadingRole !== null}
+                  onClick={() => handleRoleClick('guru', true)}
+                  className="w-full py-1.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  Login Alternatif HP (Tanpa Pop-up)
+                </button>
+              )}
             </div>
           </div>
 
@@ -166,11 +270,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               </div>
             </div>
 
-            <div className="pt-6">
+            <div className="pt-6 space-y-2">
               <button
                 type="button"
                 disabled={!authReady || loadingRole !== null}
-                onClick={() => handleRoleClick('siswa')}
+                onClick={() => handleRoleClick('siswa', false)}
                 className="w-full py-3.5 px-4 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-60 rounded-2xl shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2"
               >
                 {loadingRole === 'siswa' ? (
@@ -187,6 +291,17 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   </>
                 )}
               </button>
+
+              {!firebaseUser && !inIframe && (
+                <button
+                  type="button"
+                  disabled={!authReady || loadingRole !== null}
+                  onClick={() => handleRoleClick('siswa', true)}
+                  className="w-full py-1.5 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 transition-colors"
+                >
+                  Login Alternatif HP (Tanpa Pop-up)
+                </button>
+              )}
             </div>
           </div>
         </div>

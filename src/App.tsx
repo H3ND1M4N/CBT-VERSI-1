@@ -4,7 +4,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import {
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  User,
+} from 'firebase/auth';
 import { Navbar } from './components/Navbar';
 import { ExamListTab } from './components/TeacherDashboard/ExamListTab';
 import { ExamQuestionsManager } from './components/TeacherDashboard/ExamQuestionsManager';
@@ -35,6 +42,7 @@ export default function App() {
   // Firebase Auth State
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [authRedirectError, setAuthRedirectError] = useState<string | null>(null);
 
   // User Role Selection State: 'guru' | 'siswa' | null (portal login)
   const [currentRole, setCurrentRole] = useState<'guru' | 'siswa' | null>(() => {
@@ -83,12 +91,52 @@ export default function App() {
   const [isStudentEntryModalOpen, setIsStudentEntryModalOpen] = useState(false);
   const [examToTestDirectly, setExamToTestDirectly] = useState<ExamPackage | null>(null);
 
-  // Listen to Firebase Auth state
+  // Listen to Firebase Auth state & handle mobile redirect login result
   useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          const pendingRole = localStorage.getItem('cbt_pending_role');
+          if (pendingRole === 'guru' || pendingRole === 'siswa') {
+            localStorage.removeItem('cbt_pending_role');
+            setCurrentRole(pendingRole);
+            if (pendingRole === 'guru') {
+              setActiveNav('guru');
+            } else {
+              setActiveNav('siswa');
+              setIsStudentEntryModalOpen(true);
+            }
+          }
+        }
+      })
+      .catch((err: any) => {
+        console.error('Redirect login error:', err);
+        const code = err?.code || '';
+        setAuthRedirectError(
+          code
+            ? `Login Google gagal (${code}). Jika Anda di HP, coba buka langsung melalui aplikasi Chrome atau Safari.`
+            : 'Login Google gagal saat kembali dari halaman autentikasi.'
+        );
+      });
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
       setAuthReady(true);
-      if (!user) {
+      if (user) {
+        try {
+          const pendingRole = localStorage.getItem('cbt_pending_role');
+          if (pendingRole === 'guru' || pendingRole === 'siswa') {
+            localStorage.removeItem('cbt_pending_role');
+            setCurrentRole(pendingRole);
+            if (pendingRole === 'guru') {
+              setActiveNav('guru');
+            } else {
+              setActiveNav('siswa');
+              setIsStudentEntryModalOpen(true);
+            }
+          }
+        } catch {}
+      } else {
         setExams([]);
         setAttempts([]);
       }
@@ -170,11 +218,45 @@ export default function App() {
     };
   }, [authReady, firebaseUser, currentRole]);
 
-  // Handlers for Role & Auth Portal
-  const handleSelectRole = async (role: 'guru' | 'siswa') => {
+  // Handlers for Role & Auth Portal (supports popup + mobile redirect fallback)
+  const handleSelectRole = async (role: 'guru' | 'siswa', preferRedirect = false) => {
+    setAuthRedirectError(null);
     if (!firebaseUser) {
-      await signInWithPopup(auth, googleProvider);
+      const inIframe = (() => {
+        try {
+          return window.self !== window.top;
+        } catch {
+          return true;
+        }
+      })();
+
+      if (preferRedirect && !inIframe) {
+        try {
+          localStorage.setItem('cbt_pending_role', role);
+        } catch {}
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (err: any) {
+        const code = err?.code || '';
+        if (
+          !inIframe &&
+          (code === 'auth/popup-blocked' ||
+            code === 'auth/operation-not-supported-in-this-environment')
+        ) {
+          try {
+            localStorage.setItem('cbt_pending_role', role);
+          } catch {}
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
+        throw err;
+      }
     }
+
     setCurrentRole(role);
     if (role === 'guru') {
       setActiveNav('guru');
@@ -385,6 +467,7 @@ export default function App() {
         firebaseUser={firebaseUser}
         authReady={authReady}
         onGoogleSignOut={handleGoogleSignOut}
+        initialError={authRedirectError}
       />
     );
   }

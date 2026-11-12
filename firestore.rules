@@ -33,9 +33,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isAdminEmail() {
+      return isVerifiedEmail()
+        && ('email' in request.auth.token)
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() == 'hendy.hf@gmail.com';
+    }
+
     function isAdmin() {
-      return isVerifiedEmail() && (
-        request.auth.token.email == 'hendy.HF@gmail.com' ||
+      return isAdminEmail() || (
+        isVerifiedEmail() &&
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -155,7 +162,7 @@ service cloud.firestore {
         && (isAdmin() || existing().ownerId == request.auth.uid || existing().isPublished == true);
 
       allow list: if isVerifiedEmail()
-        && (isAdmin() || resource.data.ownerId == request.auth.uid || resource.data.isPublished == true);
+        && (resource.data.isPublished == true || resource.data.ownerId == request.auth.uid || isAdminEmail());
 
       allow create: if isVerifiedEmail()
         && isValidId(examId)
@@ -196,9 +203,9 @@ service cloud.firestore {
 
       allow list: if isVerifiedEmail()
         && (
-          isAdmin() ||
           resource.data.examOwnerId == request.auth.uid ||
-          resource.data.studentUid == request.auth.uid
+          resource.data.studentUid == request.auth.uid ||
+          isAdminEmail()
         );
 
       allow create: if isVerifiedEmail()
