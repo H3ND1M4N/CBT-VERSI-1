@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Clock,
   Volume2,
@@ -11,11 +11,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Send,
-  HelpCircle,
-  Type,
   Award,
 } from 'lucide-react';
-import { ExamPackage, Question, StudentAnswerItem, StudentAttempt } from '../../types/cbt';
+import { ExamPackage, StudentAnswerItem, StudentAttempt } from '../../types/cbt';
 import { calculateExamScores } from '../../utils/cbtLogic';
 
 interface StudentExamViewProps {
@@ -42,17 +40,23 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fontSizeLevel, setFontSizeLevel] = useState<'normal' | 'large' | 'xlarge'>('large');
   const [isReadingAudio, setIsReadingAudio] = useState(false);
+  const [audioNotice, setAudioNotice] = useState<string | null>(null);
   const [isConfirmSubmitOpen, setIsConfirmSubmitOpen] = useState(false);
+
+  const hasSubmittedRef = useRef(false);
+  const autoSubmitRef = useRef<() => void>(() => {});
 
   const currentQuestion = exam.soalList[currentIndex];
 
-  // Timer countdown
+  // Timer countdown (calls latest submit handler via ref so answers are never stale)
   useEffect(() => {
+    if (!exam.soalList || exam.soalList.length === 0) return;
+
     const timer = setInterval(() => {
       setTimeLeftSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleAutoSubmit();
+          autoSubmitRef.current();
           return 0;
         }
         return prev - 1;
@@ -60,7 +64,7 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [exam.id, exam.soalList]);
 
   const formatTimer = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);
@@ -81,8 +85,10 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
 
   // Text-to-Speech Read Aloud for Kids
   const handleReadAloud = () => {
+    if (!currentQuestion) return;
     if (!('speechSynthesis' in window)) {
-      alert('Fitur suara tidak didukung di peramban ini.');
+      setAudioNotice('Fitur suara tidak didukung di browser ini.');
+      setTimeout(() => setAudioNotice(null), 3500);
       return;
     }
 
@@ -164,8 +170,11 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
   const raguCount = exam.soalList.filter((q) => answers[q.id]?.ragu).length;
   const unansweredCount = exam.soalList.length - answeredCount;
 
-  // Submit test
+  // Submit test (guards against duplicate submits and generates collision-free IDs)
   const handleFinalSubmit = () => {
+    if (hasSubmittedRef.current) return;
+    hasSubmittedRef.current = true;
+
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -174,9 +183,10 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
 
     const now = new Date();
     const formattedDate = now.toISOString().replace('T', ' ').substring(0, 16);
+    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
 
     const attempt: StudentAttempt = {
-      id: `att-${Date.now()}`,
+      id: `att-${Date.now()}-${uniqueSuffix}`,
       examId: exam.id,
       namaSiswa: studentData.nama,
       nisn: studentData.nisn,
@@ -197,9 +207,28 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
     onSubmitExam(attempt);
   };
 
-  const handleAutoSubmit = () => {
-    handleFinalSubmit();
-  };
+  autoSubmitRef.current = handleFinalSubmit;
+
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-6 text-center space-y-4 shadow-sm">
+          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+          <h2 className="text-base font-bold text-slate-900">Paket Soal Belum Memiliki Soal</h2>
+          <p className="text-xs text-slate-500">
+            Guru belum menambahkan butir soal ke paket "{exam.judul}".
+          </p>
+          <button
+            type="button"
+            onClick={onExitExam}
+            className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+          >
+            Kembali
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Text size classes
   const fontClass =
@@ -213,6 +242,11 @@ export const StudentExamView: React.FC<StudentExamViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between">
+      {audioNotice && (
+        <div className="fixed bottom-4 right-4 z-50 px-4 py-2.5 bg-slate-900 text-white text-xs font-medium rounded-xl shadow-lg">
+          {audioNotice}
+        </div>
+      )}
       {/* Top Bar for Student Exam */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 sm:px-6 py-3 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">

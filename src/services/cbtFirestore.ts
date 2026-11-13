@@ -312,6 +312,38 @@ export async function deleteExamFromCloud(examId: string): Promise<void> {
   }
 }
 
+// Toggle an Exam Package active/published state independently (never affects other classes)
+export async function toggleExamPublishInCloud(
+  examId: string,
+  isPublished: boolean
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'exams', examId), {
+      isPublished,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `exams/${examId}`);
+  }
+}
+
+// Activate all inactive Exam Packages simultaneously in a single batch
+export async function activateAllExamsInCloud(examIds: string[]): Promise<void> {
+  if (examIds.length === 0) return;
+  const batch = writeBatch(db);
+  for (const id of examIds) {
+    batch.update(doc(db, 'exams', id), {
+      isPublished: true,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  try {
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, 'exams/*');
+  }
+}
+
 // Create a new Student Attempt in Cloud Firestore
 export async function createAttemptInCloud(
   attempt: StudentAttempt,

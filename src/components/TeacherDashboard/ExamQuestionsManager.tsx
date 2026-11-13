@@ -5,12 +5,7 @@ import {
   Sparkles,
   Edit,
   Trash2,
-  Clock,
-  Award,
-  Key,
-  Layers,
-  CheckCircle,
-  HelpCircle,
+  Power,
   BookOpen,
 } from 'lucide-react';
 import { ExamPackage, Question } from '../../types/cbt';
@@ -33,6 +28,7 @@ export const ExamQuestionsManager: React.FC<ExamQuestionsManagerProps> = ({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const totalPoints = exam.soalList.reduce((acc, q) => acc + (q.bobot || 0), 0);
+  const isActive = exam.isPublished !== false;
 
   const handleSaveQuestion = (savedQ: Question) => {
     let updatedList: Question[];
@@ -83,13 +79,25 @@ export const ExamQuestionsManager: React.FC<ExamQuestionsManagerProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">
                 {exam.kelas}
               </span>
               <span className="text-xs font-semibold text-slate-500">
                 {exam.mataPelajaran}
               </span>
+              <button
+                type="button"
+                onClick={() => handleUpdateMeta('isPublished', !isActive)}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 transition-colors ${
+                  isActive
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                }`}
+              >
+                <Power className="w-3 h-3" />
+                <span>{isActive ? 'Aktif' : 'Nonaktif'}</span>
+              </button>
             </div>
             <h2 className="text-base font-bold text-slate-900 mt-0.5">{exam.judul}</h2>
           </div>

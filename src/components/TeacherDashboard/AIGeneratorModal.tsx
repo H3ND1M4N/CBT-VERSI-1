@@ -129,8 +129,8 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
     if (!generatedResult) return;
 
     const totalBobot = generatedResult.soalList.reduce((acc, q) => acc + (q.bobot || 10), 0);
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const token = `${mataPelajaran.substring(0, 3).toUpperCase()}${kelas.replace(/\D/g, '') || 'SD'}`;
+    const randomSuffix = Math.floor(10 + Math.random() * 90);
+    const token = `${mataPelajaran.substring(0, 3).toUpperCase()}${kelas.replace(/\D/g, '') || 'SD'}${randomSuffix}`;
 
     const newExam: ExamPackage = {
       id: `exam-ai-${Date.now()}`,
@@ -147,6 +147,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
       tanggalDibuat: new Date().toISOString().split('T')[0],
       totalBobot,
       soalList: generatedResult.soalList,
+      isPublished: true,
     };
 
     onSaveExam(newExam);

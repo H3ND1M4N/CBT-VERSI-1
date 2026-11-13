@@ -26,6 +26,7 @@ import { LoginPortal } from './components/Auth/LoginPortal';
 import { ExamPackage, Question, StudentAttempt, KelasSD, MataPelajaran } from './types/cbt';
 import { auth, googleProvider } from './firebase';
 import {
+  activateAllExamsInCloud,
   clearAttemptsInCloud,
   createAttemptInCloud,
   deleteAttemptFromCloud,
@@ -34,6 +35,7 @@ import {
   seedInitialDataIfNeeded,
   subscribeToAttempts,
   subscribeToExams,
+  toggleExamPublishInCloud,
   updateAttemptInCloud,
 } from './services/cbtFirestore';
 import { BookOpen, Award, Sparkles, GraduationCap, Loader2 } from 'lucide-react';
@@ -59,8 +61,10 @@ export default function App() {
     }
   });
 
-  // Navigation State
-  const [activeNav, setActiveNav] = useState<'guru' | 'siswa' | 'panduan'>('guru');
+  // Navigation State (sync initial view with saved role)
+  const [activeNav, setActiveNav] = useState<'guru' | 'siswa' | 'panduan'>(() =>
+    currentRole === 'siswa' ? 'siswa' : 'guru'
+  );
   const [teacherSubTab, setTeacherSubTab] = useState<'bank' | 'rekap'>('bank');
 
   // Real-time Cloud Firestore State
@@ -88,7 +92,10 @@ export default function App() {
   } | null>(null);
 
   const [completedAttempt, setCompletedAttempt] = useState<StudentAttempt | null>(null);
-  const [isStudentEntryModalOpen, setIsStudentEntryModalOpen] = useState(false);
+  const [completedExam, setCompletedExam] = useState<ExamPackage | null>(null);
+  const [isStudentEntryModalOpen, setIsStudentEntryModalOpen] = useState(
+    () => currentRole === 'siswa'
+  );
   const [examToTestDirectly, setExamToTestDirectly] = useState<ExamPackage | null>(null);
 
   // Listen to Firebase Auth state & handle mobile redirect login result
@@ -310,6 +317,32 @@ export default function App() {
     }
   };
 
+  // Handler: Toggle single exam Aktif/Nonaktif independently (other classes stay active)
+  const handleToggleExamPublish = async (exam: ExamPackage) => {
+    const nextPublished = exam.isPublished === false;
+    setExams((prev) =>
+      prev.map((e) => (e.id === exam.id ? { ...e, isPublished: nextPublished } : e))
+    );
+    try {
+      await toggleExamPublishInCloud(exam.id, nextPublished);
+    } catch (err) {
+      console.error('Failed to toggle exam publish state:', err);
+    }
+  };
+
+  // Handler: Activate all inactive exams simultaneously across all classes
+  const handleActivateAllExams = async () => {
+    const inactiveIds = exams.filter((e) => e.isPublished === false).map((e) => e.id);
+    if (inactiveIds.length === 0) return;
+
+    setExams((prev) => prev.map((e) => ({ ...e, isPublished: true })));
+    try {
+      await activateAllExamsInCloud(inactiveIds);
+    } catch (err) {
+      console.error('Failed to activate all exams:', err);
+    }
+  };
+
   // Handler: Import questions from Excel / Word
   const handleImportQuestions = async (
     importedQuestions: Question[],
@@ -364,8 +397,9 @@ export default function App() {
   // Handler: Student finishes exam -> save to Cloud Firestore
   const handleStudentSubmitExam = async (attempt: StudentAttempt) => {
     setAttempts((prev) => [attempt, ...prev]);
-    const submittedExam = studentSession?.exam;
+    const submittedExam = studentSession?.exam || null;
     setStudentSession(null);
+    setCompletedExam(submittedExam);
     setCompletedAttempt(attempt);
 
     if (firebaseUser && submittedExam) {
@@ -435,7 +469,7 @@ export default function App() {
   // If viewing exam completion celebration
   if (completedAttempt) {
     const matchedExam =
-      exams.find((e) => e.id === completedAttempt.examId) || exams[0];
+      exams.find((e) => e.id === completedAttempt.examId) || completedExam;
     if (matchedExam) {
       return (
         <ExamResultView
@@ -443,6 +477,7 @@ export default function App() {
           exam={matchedExam}
           onBackToHome={() => {
             setCompletedAttempt(null);
+            setCompletedExam(null);
             if (currentRole === 'siswa') {
               setActiveNav('siswa');
               setIsStudentEntryModalOpen(true);
@@ -452,6 +487,7 @@ export default function App() {
           }}
           onRetakeExam={() => {
             setCompletedAttempt(null);
+            setCompletedExam(null);
             handleStartStudentTest(matchedExam);
           }}
         />
@@ -562,6 +598,8 @@ export default function App() {
                         onEditExamQuestions={(ex) => setManagingExamId(ex.id)}
                         onDeleteExam={handleDeleteExam}
                         onStartStudentTest={handleStartStudentTest}
+                        onToggleExamPublish={handleToggleExamPublish}
+                        onActivateAllExams={handleActivateAllExams}
                       />
                     ) : (
                       <GradingTab

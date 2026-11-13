@@ -49,20 +49,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Zone 2: Navigation links */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-          <button
-            onClick={() => onViewChange('guru')}
-            className={`flex items-center gap-2 py-1 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
-              activeView === 'guru'
-                ? 'border-indigo-600 text-indigo-600 font-semibold'
-                : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Studio Guru</span>
-            <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-mono">
-              {examCount}
-            </span>
-          </button>
+          {currentRole !== 'siswa' && (
+            <button
+              onClick={() => onViewChange('guru')}
+              className={`flex items-center gap-2 py-1 transition-colors whitespace-nowrap shrink-0 border-b-2 ${
+                activeView === 'guru'
+                  ? 'border-indigo-600 text-indigo-600 font-semibold'
+                  : 'border-transparent hover:text-slate-900'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Studio Guru</span>
+              <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-mono">
+                {examCount}
+              </span>
+            </button>
+          )}
 
           <button
             onClick={() => onViewChange('siswa')}
@@ -102,7 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {activeView === 'siswa' ? (
+          {currentRole !== 'siswa' && activeView === 'siswa' ? (
             <button
               onClick={() => onViewChange('guru')}
               className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0"
@@ -115,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="px-3.5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Simulasi Siswa</span>
+              <span>{currentRole === 'siswa' ? 'Masuk Ujian' : 'Simulasi Siswa'}</span>
             </button>
           )}
         </div>
